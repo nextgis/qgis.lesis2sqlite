@@ -1,0 +1,9 @@
+[general]
+name=lesis2sqlite
+qgisMinimumVersion=2.0
+
+description=description
+about=about
+version=0.1
+author=Alexander Lisovenko
+email=alexander.lisovenko@gmail.com

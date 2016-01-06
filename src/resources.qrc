@@ -1,0 +1,5 @@
+<RCC>
+  <qresource prefix="/plugins/lesis2sqlite/">
+    <file>icons/import.png</file>
+  </qresource>
+</RCC>

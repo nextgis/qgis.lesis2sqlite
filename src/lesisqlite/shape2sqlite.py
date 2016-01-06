@@ -29,16 +29,20 @@
 
 import os
 import sys
-
+import time
+import threading
 import sqlite3
 
 from osgeo import gdal
-from osgeo import ogr
+from osgeo import ogr, osr
 
-def shape2sqlite(shape_file, sqlite_db_dest):
+
+def shape2sqlite(shape_file, sqlite_db_dest, getSrsWKTCallback=None, addFeatureCallback=None):
     """
         Transfer data from sape to sqlite only!
     """
+    return "videl_plg"
+    
     src_shape_ds = ogr.Open(shape_file)
     
     if src_shape_ds is None:
@@ -66,9 +70,37 @@ def shape2sqlite(shape_file, sqlite_db_dest):
             return None
 
     layer_src = src_shape_ds.GetLayerByIndex(0)
-    layer_name = "videl_plg"
-    dest_ds.CopyLayer(layer_src, layer_name, ["OVERWRITE=YES"])
+    src_ref = layer_src.GetSpatialRef()
+    if (src_ref is None) and (getSrsWKTCallback is not None):
+        src_ref = osr.SpatialReference()
+        src_ref.ImportFromWkt(getSrsWKTCallback())
 
+    layer_name = "videl_plg"
+    #dest_ds.CopyLayer(layer_src, layer_name, ["OVERWRITE=YES"])
+    layer_dst = dest_ds.CreateLayer(layer_name, None, layer_src.GetGeomType(), ["OVERWRITE=YES"])
+
+    # adding fields to new layer
+    layer_definition = ogr.Feature(layer_src.GetLayerDefn())
+    for i in range(layer_definition.GetFieldCount()):
+        layer_dst.CreateField(layer_definition.GetFieldDefnRef(i))
+
+    layer_src.ResetReading()
+    # adding the features from input to dest
+    feature_count = layer_src.GetFeatureCount()
+    feature_count = 5
+    for i in range(0, feature_count):
+        print "feature: %d" % i
+        feature = layer_src.GetNextFeature()
+        # feature = layer_src.GetFeature(i)
+        layer_dst.CreateFeature(feature)
+        if addFeatureCallback is not None:
+            addFeatureCallback(i, feature_count)
+
+        time.sleep(0.01)
+    layer_dst.SyncToDisk()
+
+    dest_ds.Release()
+    src_shape_ds.Release()
 
     src_shape_ds = None
     dest_ds = None
@@ -97,6 +129,7 @@ def create_new_plg_layer(src_layer_name, sqlite_db_file, kvr_plg_layer_name, kvr
     featureDefn = layer_src.GetLayerDefn()
     nomkvrFieldDefn = featureDefn.GetFieldDefn(featureDefn.GetFieldIndex("nomkvr"))
 
+    # layer_dst = dest_ds.CreateLayer( kvr_plg_layer_name, layer_src.GetSpatialRef(), ogr.wkbPolygon, ["OVERWRITE=YES"] )
     layer_dst = dest_ds.CreateLayer( kvr_plg_layer_name, None, ogr.wkbPolygon, ["OVERWRITE=YES"] )
     if layer_dst is None:
         dest_ds = None
@@ -110,11 +143,14 @@ def create_new_plg_layer(src_layer_name, sqlite_db_file, kvr_plg_layer_name, kvr
         dest_ds = None
         return False
 
-
     for kvrnaum in kvrnums:
         uniteVidelsToKVR(layer_src, layer_dst, kvrnaum)
 
+    layer_dst.SyncToDisk()
+
+    dest_ds.Release()
     dest_ds = None
+
     return True
 
 def uniteVidelsToKVR(ogr_layer_src, ogr_layer_dest, numkvr):
@@ -125,8 +161,9 @@ def uniteVidelsToKVR(ogr_layer_src, ogr_layer_dest, numkvr):
     plskvr = feature.GetFieldAsDouble(feature.GetFieldIndex( "plsvyd" ))
     while feature is not None:
         geom = feature.GetGeometryRef()
-
+        # print "geom: ", geom
         union_geom = result_polygon.Union(geom)
+
         if union_geom is not None:
             result_polygon = union_geom
         
