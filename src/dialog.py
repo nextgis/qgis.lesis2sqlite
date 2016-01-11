@@ -34,6 +34,7 @@ from PyQt4 import QtGui
 from qgis_plugin_base import Plugin
 from worker import Worker
 
+
 class InputValue(QtCore.QObject):
     def __init__(self, vName, vType, defaultValue):
         QtCore.QObject.__init__(self)
@@ -56,7 +57,7 @@ class InputValue(QtCore.QObject):
 
 
 class IVFile(QtGui.QWidget, InputValue):
-    def __init__(self, name, chooserCaption, parent=None):
+    def __init__(self, name, title, chooserCaption, parent=None):
         InputValue.__init__(self, name, unicode, u"")
         QtGui.QWidget.__init__(self, parent)
 
@@ -64,7 +65,7 @@ class IVFile(QtGui.QWidget, InputValue):
 
         self._layout = QtGui.QHBoxLayout(self)
 
-        self.__lable = QtGui.QLabel(name + ":")
+        self.__lable = QtGui.QLabel(title)
         self.__lable.setFixedWidth(80)
         self.__lable.setWordWrap(True)
         self._layout.addWidget(self.__lable)
@@ -73,7 +74,7 @@ class IVFile(QtGui.QWidget, InputValue):
         self._inputValue.editingFinished.connect(self.saveValue)
         self._layout.addWidget(self._inputValue)
 
-        self.__button = QtGui.QPushButton("Browse")
+        self.__button = QtGui.QPushButton(QtCore.QCoreApplication.translate("lesis2sqlite", "Browse"))
         self.__button.clicked.connect(self.chooseFile)
         self._layout.addWidget(self.__button)        
 
@@ -92,6 +93,7 @@ class IVFile(QtGui.QWidget, InputValue):
         v = self._inputValue.text()
         self.setValue(v)
 
+
 class IVNewFile(IVFile):
     def chooseFile(self):
         chooserDir = QtCore.QDir.homePath()
@@ -103,6 +105,7 @@ class IVNewFile(IVFile):
 
         self._inputValue.setText(fName)
         self.saveValue()
+
 
 class IVDir(IVFile):
     def chooseFile(self):
@@ -116,7 +119,8 @@ class IVDir(IVFile):
         self._inputValue.setText(fName)
         self.saveValue()
 
-class Dialog(QtGui.QDialog):
+
+class Lesis2SQLiteDialog(QtGui.QDialog):
     layerSrcCreated = QtCore.pyqtSignal(unicode)
 
     def __init__(self, parent=None):
@@ -124,53 +128,134 @@ class Dialog(QtGui.QDialog):
 
         self.setWindowTitle(Plugin().getPluginName())
         
-        self.__layout = QtGui.QVBoxLayout(self)
-        self.__layout.setSpacing(0)
-        #self.__layout = QtGui.QGridLayout(self)
-
-        # self.__layout.addWidget(QtGui.QLabel("Lesis base dir:"), 0, 0)
-        # self.__layout.addWidget(QtGui.QLabel("Videl shape:"), 1, 0)
-
-        # self.__layout.addWidget(QtGui.QLineEdit(), 0, 1)
-        # self.__layout.addWidget(QtGui.QLineEdit(), 1, 1)
-
-        # self.__layout.addWidget(QtGui.QPushButton("..."), 0, 2)
-        # self.__layout.addWidget(QtGui.QPushButton("..."), 1, 2)
+        self.__mainLayout = QtGui.QVBoxLayout(self)
         
-        self.lesisBaseDir = IVDir("Lesis base dir", "Select Lesis base dir", self)
-        self.__layout.addWidget(self.lesisBaseDir)
+        self.__layout = QtGui.QGridLayout(self)
+        self.__mainLayout.addLayout(self.__layout)
+
+        self.__layout.addWidget(QtGui.QLabel(self.tr("Lesis base dir") + ":"), 0, 0)
+        self.__layout.addWidget(QtGui.QLabel(self.tr("Videl shape") + ":"), 1, 0)
+        self.__layout.addWidget(QtGui.QLabel(self.tr("SQLite db") + ":"), 2, 0)
+
+        settings = QtCore.QSettings()
+        self.lesisBaseDir = QtGui.QLineEdit(self)
+        self.lesisBaseDir.setText(
+            settings.value("%s/lesisBaseDir" % (Plugin().getPluginName(), ), u"", type = unicode)
+        )
+        self.shape = QtGui.QLineEdit(self)
+        self.shape.setText(
+            settings.value("%s/shape" % (Plugin().getPluginName(), ), u"", type = unicode)
+        )
+        self.sqliteDB = QtGui.QLineEdit(self)
+        self.sqliteDB.setText(
+            settings.value("%s/sqliteDB" % (Plugin().getPluginName(), ), u"", type = unicode)
+        )
+        self.__layout.addWidget(self.lesisBaseDir, 0, 1)
+        self.__layout.addWidget(self.shape, 1, 1)
+        self.__layout.addWidget(self.sqliteDB, 2, 1)
+
+        self.btnLesisBaseDir = QtGui.QPushButton(self.tr("Browse"), self)
+        self.btnLesisBaseDir.clicked.connect(self.chooseLesisBaseDir)
+        self.btnShape = QtGui.QPushButton(self.tr("Browse"), self)
+        self.btnShape.clicked.connect(self.chooseShapeFile)
+        self.btnSQLiteDB = QtGui.QPushButton(self.tr("Browse"), self)
+        self.btnSQLiteDB.clicked.connect(self.choosesqliteDB)
+
+        self.__layout.addWidget(self.btnLesisBaseDir, 0, 2)
+        self.__layout.addWidget(self.btnShape, 1, 2)
+        self.__layout.addWidget(self.btnSQLiteDB, 2, 2)
         
-        self.shape = IVFile("Videls shape", "Select Videls shape", self)
-        self.__layout.addWidget (self.shape)
+        # self.lesisBaseDir = IVDir("lesis_base_dir", self.tr("Lesis base dir"), self.tr("Select Lesis base dir"), self)
+        # self.__layout.addWidget(self.lesisBaseDir)
+        
+        # self.shape = IVFile("lesis_shape", self.tr("Videls shape 1"), self.tr("Select Videls shape"), self)
+        # self.__layout.addWidget (self.shape)
 
-        self.sqliteDB = IVNewFile("SQLite db", "Select output sqlite DB", self)
-        self.__layout.addWidget(self.sqliteDB)
+        # self.sqliteDB = IVNewFile("sqlite_db", self.tr("SQLite db 1"), self.tr("Select output sqlite DB"), self)
+        # self.__layout.addWidget(self.sqliteDB)
 
-        self.__layout.addItem(QtGui.QSpacerItem(40, 20, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding))
+        self.__mainLayout.addItem(QtGui.QSpacerItem(40, 20, QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Expanding))
 
         self.__statusLable =  QtGui.QLabel(self)
-        self.__layout.addWidget(self.__statusLable)
-        # self.__pbar = QtGui.QProgressBar()
-        # self.__pbar.setVisible(False)
-        # self.__pbar.setTextVisible(True)
-        # self.__layout.addWidget(self.__pbar)
-
+        self.__mainLayout.addWidget(self.__statusLable)
+        
         self.__bbox = QtGui.QDialogButtonBox(QtGui.QDialogButtonBox.Ok)
+        self.__bbox.setSizePolicy(QtGui.QSizePolicy.Expanding, QtGui.QSizePolicy.Fixed)
         self.__bbox.accepted.connect(self.accept)
-        self.__layout.addWidget(self.__bbox)
+        self.__mainLayout.addWidget(self.__bbox)
 
         self.worker = None
         self.thread = None
 
+    def chooseShapeFile(self):
+        chooserDir = QtCore.QDir.homePath()
+        
+        currentFilename = self.shape.text()
+        if os.path.exists(currentFilename):
+            chooserDir = os.path.dirname(currentFilename)
+
+        fName = QtGui.QFileDialog.getOpenFileName(self, self.tr("Select Videls shape"), chooserDir)
+
+        if fName != u"":
+            self.shape.setText(fName)
+
+    def chooseLesisBaseDir(self):
+        chooserDir = QtCore.QDir.homePath()
+        
+        currentDirname = self.lesisBaseDir.text()
+        if os.path.exists(currentDirname):
+            chooserDir = os.path.dirname(currentDirname)
+
+        fName = QtGui.QFileDialog.getExistingDirectory(self, self.tr("Select Lesis base dir"), chooserDir)
+
+        if fName != u"":
+            self.lesisBaseDir.setText(fName)
+
+    def choosesqliteDB(self):
+        chooserDir = QtCore.QDir.homePath()
+        
+        currentFilename = self.sqliteDB.text()
+        if os.path.exists(currentFilename):
+            chooserDir = os.path.dirname(currentFilename)
+
+        fName = QtGui.QFileDialog.getSaveFileName(self, self.tr("Select output sqlite DB"), chooserDir)
+
+        if fName != u"":
+            self.sqliteDB.setText(fName)
+
+    def validate(self):
+        exceptions = []
+        if not os.path.exists(self.lesisBaseDir.text()):
+            exceptions.append(self.tr("Specified Lesis base dir not found!"))
+
+        if not os.path.exists(self.shape.text()):
+            exceptions.append(self.tr("Specified shape file not found!"))
+
+        if self.sqliteDB.text() == u"":
+            exceptions.append(self.tr("Sqlite db file not specified!"))
+
+        if len(exceptions) > 0:
+            QtGui.QMessageBox.critical(self, self.tr("Validate error"), "\n".join(exceptions))
+            return False
+
+        return True
+
     def accept(self):
-        # self.__pbar.setVisible(True)
+        
+        if not self.validate():
+            return
+
+        settings = QtCore.QSettings()
+        settings.setValue("%s/lesisBaseDir" % (Plugin().getPluginName(), ), self.lesisBaseDir.text())
+        settings.setValue("%s/shape" % (Plugin().getPluginName(), ), self.shape.text())
+        settings.setValue("%s/sqliteDB" % (Plugin().getPluginName(), ), self.sqliteDB.text())
 
         self.__bbox.button(QtGui.QDialogButtonBox.Ok).setEnabled(False)
 
         worker = Worker(
-            self.lesisBaseDir.getValue(),
-            self.shape.getValue(),
-            self.sqliteDB.getValue()
+            self.lesisBaseDir.text(),
+            self.shape.text(),
+            self.sqliteDB.text()
         )
         thread = QtCore.QThread(self)
 
@@ -190,20 +275,11 @@ class Dialog(QtGui.QDialog):
         self.thread = thread
         self.worker = worker
 
-        # return QtGui.QDialog.accept(self)        
-
-    def processWorkerLog(self, msg):
-        #print "worker log: " + msg
-        Plugin().plPrint("worker log: " + msg)
-
     def reject(self):
         Plugin().plPrint("reject")
 
         if self.worker is not None:
             self.worker.interupt()
-        
-        # if self.thread is not None:
-        #     self.thread.terminate()
         
         return QtGui.QDialog.reject(self)
 
@@ -211,20 +287,7 @@ class Dialog(QtGui.QDialog):
         QtGui.QMessageBox.critical(self, "Export error", msg)
 
     def changeProgressStatus(self, status):
-        # Plugin().plPrint(">>> " + status)
-        # if showProgressAs == u"percent":
-        #     self.__pbar.setFormat(status + " (%p%)")
-        # elif showProgressAs == u"step":
-        #     self.__pbar.setFormat(status + " (%v from %m)")
-        # else:
-        #     self.__pbar.setFormat(status)
-
-        # self.__pbar.setRange(min, max)
         self.__statusLable.setText(status)
 
-    def changeProgress(self, value):
-        # self.__pbar.setValue(value)
-        pass
-
     def addLayer(self):
-        self.layerSrcCreated.emit(self.sqliteDB.getValue())
+        self.layerSrcCreated.emit(self.sqliteDB.text())

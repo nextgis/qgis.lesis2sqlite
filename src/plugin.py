@@ -30,16 +30,37 @@ from PyQt4 import QtCore, QtGui
 
 from qgis.core import (
     QgsMapLayerRegistry,
+    QgsApplication
 )
 
 from qgis_plugin_base import Plugin
-from dialog import Dialog
+from dialog import Lesis2SQLiteDialog
 
 import resources_rc
 
 class Lesis2sqlite(Plugin):
     def __init__(self, iface):
         Plugin.__init__(self, iface, "Lesis2sqlite")
+
+        userPluginPath = QtCore.QFileInfo(QgsApplication.qgisUserDbFilePath()).path() + '/python/plugins/lesis2sqlite'
+        systemPluginPath = QgsApplication.prefixPath() + '/python/plugins/lesis2sqlite'
+
+        overrideLocale = QtCore.QSettings().value('locale/overrideFlag', False, type=bool)
+        if not overrideLocale:
+            localeFullName = QtCore.QLocale.system().name()[:2]
+        else:
+            localeFullName = QtCore.QSettings().value("locale/userLocale", "")
+
+        if QtCore.QFileInfo(userPluginPath).exists():
+            translationPath = userPluginPath + '/i18n/lesis2sqlite_' + localeFullName + '.qm'
+        else:
+            translationPath = systemPluginPath + '/i18n/lesis2sqlite_' + localeFullName + '.qm'
+
+        self.localePath = translationPath
+        if QtCore.QFileInfo(self.localePath).exists():
+            self.translator = QtCore.QTranslator()
+            self.translator.load(self.localePath)
+            QgsApplication.installTranslator(self.translator)
 
     def initGui(self):
         self.plPrint("initGui")
@@ -52,7 +73,7 @@ class Lesis2sqlite(Plugin):
     def run(self):
         settings = QtCore.QSettings()
 
-        dlg = Dialog(self._iface.mainWindow())
+        dlg = Lesis2SQLiteDialog(self._iface.mainWindow())
         dlg.resize(settings.value("%s/dialog_size" % self._name, QtCore.QSize(200,100)))
         dlg.layerSrcCreated.connect(self.addLayer)
         dlg.exec_()
