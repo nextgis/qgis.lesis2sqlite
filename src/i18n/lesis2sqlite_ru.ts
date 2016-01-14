@@ -11,7 +11,7 @@
     <message>
         <location filename="dialog.py" line="146"/>
         <source>Videl shape</source>
-        <translation>Shape-файд выделов</translation>
+        <translation>Shape-файл выделов</translation>
     </message>
     <message>
         <location filename="dialog.py" line="147"/>

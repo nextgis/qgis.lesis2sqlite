@@ -261,7 +261,6 @@ class Lesis2SQLiteDialog(QtGui.QDialog):
 
         worker.moveToThread(thread)
         worker.statusChanged.connect(self.changeProgressStatus)
-        worker.progressChanged.connect(self.changeProgress)
         worker.error.connect(self.workerErorrProcess)
 
         thread.started.connect(worker.run)

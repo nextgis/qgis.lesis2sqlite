@@ -299,11 +299,11 @@ def parse_args():
 
 class ConverterInteruptException(Exception):
     def __init__(self, message):
-        super(LesisExportException, self).__init__(message)
+        super(ConverterInteruptException, self).__init__(message)
 
 class ConverterErrorException(Exception):
     def __init__(self, message):
-        super(LesisExportException, self).__init__(message)
+        super(ConverterErrorException, self).__init__(message)
 
 class Converter(object):
     RETURN_CODE_SUCCESS = 0
@@ -344,6 +344,9 @@ class Converter(object):
         self.__setStatus("Convert start")
         
         try:
+            if os.path.exists(self.__sqlite_filename):
+                os.remove(self.__sqlite_filename)
+
             self.__validateLesisWorkDir()
             
             self.__copyShape()
@@ -416,23 +419,14 @@ class Converter(object):
     def __getSQLiteDS(self):
         sqlite_ds = None
         procedure_name = "Crate sqlite ogr data source."
-        if os.path.isfile(self.__sqlite_filename):
-            sqlite_ds = ogr.Open(self.__sqlite_filename, True)
-            
-            if sqlite_ds is None:
-                msg = procedure_name + " Error: " + "can't create ogr datasource for sqlite."
-                raise ConverterErrorException(msg)
+        
+        drv = ogr.GetDriverByName("SQLite")
+        # sqlite_ds = drv.CreateDataSource(self.__sqlite_filename, ["SPATIALITE=YES"])
+        sqlite_ds = drv.CreateDataSource(self.__sqlite_filename, ["SPATIALITE=YES"])
 
-            if sqlite_ds.GetDriver().GetName() != "SQLite":
-                msg = procedure_name + " Error: " + "input file have not sqlite format."
-                raise ConverterErrorException(msg)
-        else:
-            drv = ogr.GetDriverByName("SQLite")
-            sqlite_ds = drv.CreateDataSource(self.__sqlite_filename)
-
-            if sqlite_ds is None:
-                msg = procedure_name + " Error: " + "can't create ogr datasource for sqlite."
-                raise ConverterErrorException(msg)
+        if sqlite_ds is None:
+            msg = procedure_name + " Error: " + "can't create ogr datasource for sqlite."
+            raise ConverterErrorException(msg)
 
         return sqlite_ds
 

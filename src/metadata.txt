@@ -4,6 +4,10 @@ qgisMinimumVersion=2.0
 
 description=description
 about=about
-version=0.1
+version=0.1.1
 author=Alexander Lisovenko
 email=alexander.lisovenko@gmail.com
+
+homepage=https://github.com/nextgis/qgis.lesis2sqlite
+tracker=https://github.com/nextgis/qgis.lesis2sqlite/issues
+repository=https://github.com/nextgis/qgis.lesis2sqlite
