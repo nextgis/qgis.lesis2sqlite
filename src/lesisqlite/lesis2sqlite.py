@@ -98,10 +98,13 @@ class LesisFileStructure(object):
                     dataFilesSet.update({"phl1": os.path.join(data_dir, f)})
                 if f.lower()  == "phl2.dbf":
                     dataFilesSet.update({"phl2": os.path.join(data_dir, f)})
+                if f.lower()  == "phl3.dbf":
+                    dataFilesSet.update({"phl3": os.path.join(data_dir, f)})
             if len(dataFilesSet) > 0:
                 dataFiles.append(dataFilesSet)
 
         return dataFiles
+
 
 def getFieldsDescFromDBF(dbf_fields_file):
     dbf_table = DBF(
@@ -124,186 +127,189 @@ def getFieldsDescFromDBF(dbf_fields_file):
 
     return fields_desc
 
-reference_cash = {}
+# reference_cash = {}
 
-def videlsCount(sqlite_db_file, tbl_name):
-    conn = sqlite3.connect(sqlite_db_file)
-    cur = conn.cursor()
+# def videlsCount(sqlite_db_file, tbl_name):
+#     conn = sqlite3.connect(sqlite_db_file)
+#     cur = conn.cursor()
 
-    cur.execute("select count(*) from %s" % tbl_name)
-    videl_count = cur.fetchone()[0]
-    return videl_count
+#     cur.execute("select count(*) from %s" % tbl_name)
+#     videl_count = cur.fetchone()[0]
+#     return videl_count
 
-def processPHL1(phl1_dbf_file, tbl_name, sqlite_db_file, fields_desc, lesis_file_structure, subscriber_func = None):
+# def processPHL1(phl1_dbf_file, tbl_name, sqlite_db_file, fields_desc, lesis_file_structure, subscriber_func = None):
     
-    def getDBFValue(v):
-        '''
-            dbf_file_name
-            dbf_file_value
-        '''
-        dbf_file_name = v[0]
-        dbf_file_value = unicode(v[1])
+#     def getDBFValue(v):
+#         '''
+#             dbf_file_name
+#             dbf_file_value
+#         '''
+#         dbf_file_name = v[0]
+#         dbf_file_value = unicode(v[1])
 
-        field_desc = fields_desc.get(dbf_file_name)
+#         field_desc = fields_desc.get(dbf_file_name)
 
-        if field_desc[u"ref"] in ["", None]:
-            return v[1] 
+#         if field_desc[u"ref"] in ["", None]:
+#             return v[1] 
 
-        ref_dbf_file = lesis_file_structure.getDBFbyName(field_desc[u"ref"])
-        if ref_dbf_file is None:
-            return u"Reference file not found!"
+#         ref_dbf_file = lesis_file_structure.getDBFbyName(field_desc[u"ref"])
+#         if ref_dbf_file is None:
+#             return u"Reference file not found!"
 
-        try:
-            return reference_cash[(ref_dbf_file, dbf_file_value)]
+#         try:
+#             return reference_cash[(ref_dbf_file, dbf_file_value)]
 
-        except KeyError:
-            ref_dbf_table = DBF(
-                ref_dbf_file,
-                lowernames=True,
-                encoding=LESIS_ENCODING
-            )
+#         except KeyError:
+#             ref_dbf_table = DBF(
+#                 ref_dbf_file,
+#                 lowernames=True,
+#                 encoding=LESIS_ENCODING
+#             )
             
-            kl_type = u"N"
-            for dbf_field in ref_dbf_table.fields:
-                if dbf_field.name == u"kl":
-                    kl_type = dbf_field.type
+#             kl_type = u"N"
+#             for dbf_field in ref_dbf_table.fields:
+#                 if dbf_field.name == u"kl":
+#                     kl_type = dbf_field.type
 
-            is_found = False
-            for row in ref_dbf_table:
-                # TODO get find KL and TX field exception
-                kl = row.get(u"kl")
-                if kl_type in [u"I", u"F", u"N", u"0"] and kl is None:
-                    kl = 0
-                kl = unicode(kl)
-                tx = row.get(u"tx", None)
+#             is_found = False
+#             for row in ref_dbf_table:
+#                 # TODO get find KL and TX field exception
+#                 kl = row.get(u"kl")
+#                 if kl_type in [u"I", u"F", u"N", u"0"] and kl is None:
+#                     kl = 0
+#                 kl = unicode(kl)
+#                 tx = row.get(u"tx", None)
 
-                if dbf_file_value == kl:
-                    is_found = True
-                    kl = dbf_file_value
+#                 if dbf_file_value == kl:
+#                     is_found = True
+#                     kl = dbf_file_value
 
-                reference_cash.update({(ref_dbf_file, kl): tx})
+#                 reference_cash.update({(ref_dbf_file, kl): tx})
 
-            if not is_found:
-                reference_cash.update({(ref_dbf_file, dbf_file_value): None})
+#             if not is_found:
+#                 reference_cash.update({(ref_dbf_file, dbf_file_value): None})
 
-            return (dbf_file_name, reference_cash[(ref_dbf_file, dbf_file_value)] )
+#             return (dbf_file_name, reference_cash[(ref_dbf_file, dbf_file_value)] )
 
-    dbf_table = DBF(
-        phl1_dbf_file,
-        lowernames=True,
-        encoding=LESIS_ENCODING
-    )
+#     dbf_table = DBF(
+#         phl1_dbf_file,
+#         lowernames=True,
+#         encoding=LESIS_ENCODING
+#     )
 
-    conn = sqlite3.connect(sqlite_db_file)
-    cur = conn.cursor()
+#     conn = sqlite3.connect(sqlite_db_file)
+#     cur = conn.cursor()
 
-    cur.execute("PRAGMA table_info(%s)" % tbl_name)
-    existing_fileds = [field[1] for field in cur.fetchall()]
+#     cur.execute("PRAGMA table_info(%s)" % tbl_name)
+#     existing_fileds = [field[1] for field in cur.fetchall()]
 
-    export_fields = []
-    for export_field in dbf_table.fields:
-        field_name = export_field.name
-        field_type = typemap.get(export_field.type, 'TEXT')
+#     export_fields = []
+#     for export_field in dbf_table.fields:
+#         field_name = export_field.name
+#         field_type = typemap.get(export_field.type, 'TEXT')
 
-        if field_name in existing_fileds:
-            continue
+#         if field_name in existing_fileds:
+#             continue
 
-        field_desc = fields_desc.get(export_field.name, None)
-        if field_desc is None:
-            continue
+#         field_desc = fields_desc.get(export_field.name, None)
+#         if field_desc is None:
+#             continue
 
-        if field_desc[u"ref"] not in ["", None]:
-            field_type = 'TEXT'
+#         if field_desc[u"ref"] not in ["", None]:
+#             field_type = 'TEXT'
 
-        sql = "alter table %s add column %s %s" % (tbl_name, field_name, field_type)
-        cur.execute(sql)
-        export_fields.append(field_name)
+#         sql = "alter table %s add column %s %s" % (tbl_name, field_name, field_type)
+#         cur.execute(sql)
+#         export_fields.append(field_name)
 
-    conn.commit()
+#     conn.commit()
 
-    exceptions = []
+#     exceptions = []
 
-    videl_count = dbf_table._count_records()
-    videl_index = 1
-    for row in dbf_table:
+#     videl_count = dbf_table._count_records()
+#     videl_index = 1
+#     for row in dbf_table:
         
-        nomkvr = row.get(u"nomkvr", None)
-        nomvyd = row.get(u"nomvyd", None)
+#         nomkvr = row.get(u"nomkvr", None)
+#         nomvyd = row.get(u"nomvyd", None)
         
-        if nomkvr is None or nomvyd is None:
-            continue
+#         if nomkvr is None or nomvyd is None:
+#             continue
         
-        values = [(v[0], getDBFValue(v)) for v in row.items() if v[0] in export_fields]
+#         values = [(v[0], getDBFValue(v)) for v in row.items() if v[0] in export_fields]
 
-        try:
-            sql = "update %s set %s where nomkvr = %s and nomvyd = %s" % (
-                tbl_name,
-                ", ".join(["%s=?" % v[0] for v in values]),
-                nomkvr,
-                nomvyd   
-            )
+#         try:
+#             sql = "update %s set %s where nomkvr = %s and nomvyd = %s" % (
+#                 tbl_name,
+#                 ", ".join(["%s=?" % v[0] for v in values]),
+#                 nomkvr,
+#                 nomvyd   
+#             )
 
-            cur.execute(sql, [v[1] for v in values])
-            subscriber_func(videl_index, videl_count)
-            videl_index += 1
-        except Exception as err:
-            exceptions.append("Update %s where nomkvr = %s and nomvyd = %s error: %s" % (
-                tbl_name,
-                nomkvr,
-                nomvyd,
-                str(err)
-            ))
+#             cur.execute(sql, [v[1] for v in values])
+#             subscriber_func(videl_index, videl_count)
+#             videl_index += 1
+#         except Exception as err:
+#             exceptions.append("Update %s where nomkvr = %s and nomvyd = %s error: %s" % (
+#                 tbl_name,
+#                 nomkvr,
+#                 nomvyd,
+#                 str(err)
+#             ))
 
-        #print("----- %s seconds ---" % (time.time() - start_time_1))
+#         #print("----- %s seconds ---" % (time.time() - start_time_1))
 
-    conn.commit()
-    return exceptions
+#     conn.commit()
+#     return exceptions
 
-def processPHL2(phl1_dbf_file, layer_name, sqlite_db_file, fields_desc):
-    pass
+# def processPHL2(phl1_dbf_file, layer_name, sqlite_db_file, fields_desc):
+#     pass
 
 
-def addKVRpoligonLayer(layer_name, sqlite_db_file, kvr_plg_layer_name="kvr_plg"):
-    conn = sqlite3.connect(sqlite_db_file)
-    cur = conn.cursor()
+# def addKVRpoligonLayer(layer_name, sqlite_db_file, kvr_plg_layer_name="kvr_plg"):
+#     conn = sqlite3.connect(sqlite_db_file)
+#     cur = conn.cursor()
 
-    sql = "select DISTINCT nomkvr from %s" % layer_name
-    cur.execute(sql)
+#     sql = "select DISTINCT nomkvr from %s" % layer_name
+#     cur.execute(sql)
     
-    kvrs_info = cur.fetchall()
+#     kvrs_info = cur.fetchall()
 
-    cur.close()
-    conn.close()
+#     cur.close()
+#     conn.close()
 
-    create_new_plg_layer(
-        layer_name,
-        sqlite_db_file,
-        kvr_plg_layer_name,
-        [kvr_info[0] for kvr_info in kvrs_info]
-    )
+#     create_new_plg_layer(
+#         layer_name,
+#         sqlite_db_file,
+#         kvr_plg_layer_name,
+#         [kvr_info[0] for kvr_info in kvrs_info]
+#     )
 
 
-def parse_args():
-    import argparse
-    parser = argparse.ArgumentParser(
-        description='usage: %prog lesis_export_base_dir')
-    arg = parser.add_argument
+# def parse_args():
+#     import argparse
+#     parser = argparse.ArgumentParser(
+#         description='usage: %prog lesis_export_base_dir')
+#     arg = parser.add_argument
 
-    arg('--lesis_export_base_dir',
-        action='store',
-        dest='lesis_export_base_dir',
-        default=None,
-        help='lesis export data base dir ')
+#     arg('--lesis_export_base_dir',
+#         action='store',
+#         dest='lesis_export_base_dir',
+#         default=None,
+#         help='lesis export data base dir ')
 
-    return parser.parse_args()
+#     return parser.parse_args()
+
 
 class ConverterInteruptException(Exception):
     def __init__(self, message):
         super(ConverterInteruptException, self).__init__(message)
 
+
 class ConverterErrorException(Exception):
     def __init__(self, message):
         super(ConverterErrorException, self).__init__(message)
+
 
 class Converter(object):
     RETURN_CODE_SUCCESS = 0
@@ -311,7 +317,6 @@ class Converter(object):
     RETURN_CODE_INTERUPT = 2
 
     def __init__(self, lesis_base_dir, shape_filename, sqlite_filename):
-
         self.__lesis_base_dir   = lesis_base_dir
         self.__shape_filename   = shape_filename
         self.__sqlite_filename  = sqlite_filename
@@ -324,6 +329,9 @@ class Converter(object):
         self.videlLayerName = "videl_plg"
         self.kvrLayerName = "kvr_plg"
         self.yarporLayerName = "yarpor_attr"
+        self.alias_table_name = "aliases"
+
+        self.maket_table_name_pattern = u"maket_%s"
 
         self.__status_changed_callback = None
         self.__status_set_crs = None
@@ -341,36 +349,63 @@ class Converter(object):
         self.__interupt.set()
 
     def convert(self):
+        self.procedure_name = None
         self.__setStatus("Convert start")
-        
+        result = None
+
         try:
             if os.path.exists(self.__sqlite_filename):
-                os.remove(self.__sqlite_filename)
+                 os.remove(self.__sqlite_filename)
 
             self.__validateLesisWorkDir()
             
             self.__copyShape()
             
+            self.__makeAliasesTable()
+
             self.__createKvrLayer()
 
             self.__processPhl1()
 
             self.__processPhl2()
 
-            return self.RETURN_CODE_SUCCESS
+            self.__processPhl3()
+
+            result = self.RETURN_CODE_SUCCESS
         except ConverterErrorException as err:
             self.__exceptions.append(err.message)
             self.__setStatus(err.message)
-            return self.RETURN_CODE_ERROR            
+            result = self.RETURN_CODE_ERROR            
 
         except ConverterInteruptException:
-            return self.RETURN_CODE_INTERUPT
+            result = self.RETURN_CODE_INTERUPT
+
+        self.procedure_name = None
+        self.__setStatus("Convert finish")
+        return result
 
     def __setStatus(self, status_msg):
         if self.__status_changed_callback is not None:
-            self.__status_changed_callback(status_msg)
+            if self.procedure_name is not None:
+                msg = self.procedure_name + ": " + status_msg
+                self.__status_changed_callback(msg)
+            else:
+                self.__status_changed_callback(status_msg)
+
+    def __getVidels(self, cur):
+        sql = "select ogc_fid, nnn from %s" % (
+            self.videlLayerName,
+        )
+        cur.execute(sql)
+        videls_list = cur.fetchall()
+        videls = {}
+        for videl in videls_list:
+            videls.update({videl[1]: videl[0]})
+
+        return videls
 
     def __validateLesisWorkDir(self):
+        self.procedure_name = "Init work space"
         self.__setStatus("Analize lesis dir struct. Start")
         
         try:
@@ -405,34 +440,42 @@ class Converter(object):
             
     def __getShapeDS(self):
         shape_ds = ogr.Open(self.__shape_filename)
-        procedure_name = "Crate shape ogr data source."
+        self.procedure_name = "Crate shape ogr data source."
         if shape_ds is None:
-            msg = procedure_name + " Error: " + "can't create ogr datasource for shape."
+            msg = self.procedure_name + " Error: " + "can't create ogr datasource for shape."
             raise ConverterErrorException(msg)
 
         if shape_ds.GetDriver().GetName() != "ESRI Shapefile":
-            msg = procedure_name + " Error: " + "input file have not shape format."
+            msg = self.procedure_name + " Error: " + "input file have not shape format."
             raise ConverterErrorException(msg)
 
         return shape_ds 
 
     def __getSQLiteDS(self):
         sqlite_ds = None
-        procedure_name = "Crate sqlite ogr data source."
+        self.procedure_name = "Crate sqlite ogr data source."
         
-        drv = ogr.GetDriverByName("SQLite")
-        # sqlite_ds = drv.CreateDataSource(self.__sqlite_filename, ["SPATIALITE=YES"])
-        sqlite_ds = drv.CreateDataSource(self.__sqlite_filename, ["SPATIALITE=YES"])
+        if os.path.isfile(self.__sqlite_filename):
+            sqlite_ds = ogr.Open(self.__sqlite_filename, True)
+            
+            if sqlite_ds is None:
+                raise ConverterErrorException("Error: can't create ogr datasource for sqlite.")
 
-        if sqlite_ds is None:
-            msg = procedure_name + " Error: " + "can't create ogr datasource for sqlite."
-            raise ConverterErrorException(msg)
+            if sqlite_ds.GetDriver().GetName() != "SQLite":
+                raise ConverterErrorException("Error: input file have not sqlite format.")
+        else:
+            drv = ogr.GetDriverByName("SQLite")
+            # sqlite_ds = drv.CreateDataSource(self.__sqlite_filename, ["SPATIALITE=YES"])
+            sqlite_ds = drv.CreateDataSource(self.__sqlite_filename)
+
+            if sqlite_ds is None:
+                raise ConverterErrorException(" Error: can't create ogr datasource for sqlite.")
 
         return sqlite_ds
 
     def __copyShape(self):
-        procedure_name = "Copy shape file."
-        self.__setStatus(procedure_name + " Start")
+        self.procedure_name = "Copy shape file."
+        self.__setStatus("Start")
 
         src_shape_ds = self.__getShapeDS()
         dest_ds = self.__getSQLiteDS()
@@ -460,13 +503,13 @@ class Converter(object):
 
         for i in range(0, feature_count):
             if self.__interupt.isSet():
-                raise ConverterInteruptException(procedure_name + " Interupt")
+                raise ConverterInteruptException(self.procedure_name + " Interupt")
 
             feature = layer_src.GetNextFeature()
             # feature = layer_src.GetFeature(i)
             layer_dst.CreateFeature(feature)
             
-            self.__setStatus(procedure_name + " Copied %d from %d features" % (i, feature_count))
+            self.__setStatus("Copied %d from %d features" % (i, feature_count))
 
             time.sleep(0.01)
         layer_dst.SyncToDisk()
@@ -477,12 +520,12 @@ class Converter(object):
         src_shape_ds = None
         dest_ds = None
 
-        self.__setStatus(procedure_name + " Finish")
+        self.__setStatus("Finish")
         return layer_name
 
     def __createKvrLayer(self):
-        procedure_name = "Create kvr layer."
-        self.__setStatus(procedure_name + " Start")
+        self.procedure_name = "Create kvr layer"
+        self.__setStatus("Start")
 
         conn = sqlite3.connect(self.__sqlite_filename)
         cur = conn.cursor()
@@ -499,21 +542,20 @@ class Converter(object):
 
         layer_src = sqlite_ds.GetLayerByName(self.videlLayerName)
         featureDefn = layer_src.GetLayerDefn()
-        
 
         layer_dst = sqlite_ds.CreateLayer( self.kvrLayerName, layer_src.GetSpatialRef(), ogr.wkbPolygon, ["OVERWRITE=YES"] )
         if layer_dst is None:
-            msg = procedure_name + " Error: " + "can't create ogr layer."
+            msg = self.procedure_name + " Error: " + "can't create ogr layer."
             raise ConverterErrorException(msg)
 
         field_defn = ogr.FieldDefn( "plskvr", ogr.OFTReal )
         if layer_dst.CreateField ( field_defn ) != 0:
-            msg = procedure_name + " Error: " + "can't create ogr field 'plskvr'."
+            msg = self.procedure_name + " Error: " + "can't create ogr field 'plskvr'."
             raise ConverterErrorException(msg)
 
         nomkvrFieldDefn = featureDefn.GetFieldDefn(featureDefn.GetFieldIndex("nomkvr"))    
         if layer_dst.CreateField ( nomkvrFieldDefn ) != 0:
-            msg = procedure_name + " Error: " + "can't create ogr field 'nomkvr'."
+            msg = self.procedure_name + " Error: " + "can't create ogr field 'nomkvr'."
             raise ConverterErrorException(msg)
 
         for kvr_num in kvrs_nums:
@@ -525,7 +567,7 @@ class Converter(object):
             
             while feature is not None:
                 if self.__interupt.isSet():
-                    raise ConverterInteruptException(procedure_name + " Interupt")
+                    raise ConverterInteruptException(self.procedure_name + " Interupt")
 
                 geom = feature.GetGeometryRef()
                 union_geom = result_polygon.Union(geom)
@@ -535,7 +577,7 @@ class Converter(object):
                 
                 plskvr += feature.GetFieldAsDouble(feature.GetFieldIndex( "plsvyd" ))
 
-                self.__setStatus(procedure_name + " Process videl %d" % (feature.GetFID()))
+                self.__setStatus("Process videl %d" % (feature.GetFID()))
 
                 feature = layer_src.GetNextFeature()
                 time.sleep(0.01)
@@ -550,11 +592,9 @@ class Converter(object):
         sqlite_ds.Release()
         sqlite_ds = None
 
-        self.__setStatus(procedure_name + " Finish")
+        self.__setStatus("Finish")
 
-    def __getDBFValue(self, (field_name, field_value)):
-        dbf_field_value = unicode(field_value)
-
+    def __getDBFValueByField(self, (field_name, field_value)):
         field_desc = self.__lessis_fields_struct.get(field_name)
 
         if field_desc is None:
@@ -568,6 +608,11 @@ class Converter(object):
         ref_dbf_file = self.__lfs.getDBFbyName(field_desc_ref)
         if ref_dbf_file is None:
             return u"Reference file not found!"
+
+        return self.__getDBFValueByDBF((ref_dbf_file, field_value))
+
+    def __getDBFValueByDBF(self, (ref_dbf_file, field_value)):
+        dbf_field_value = unicode(field_value)
 
         try:
             return self.__reference_cash[(ref_dbf_file, dbf_field_value)]
@@ -604,8 +649,8 @@ class Converter(object):
             return self.__reference_cash[(ref_dbf_file, dbf_field_value)]
 
     def __processPhl1(self):
-        procedure_name = "Process phl1 file."
-        self.__setStatus(procedure_name + " Start")
+        self.procedure_name = "Process phl1 file."
+        self.__setStatus("Start")
 
         phl1_dbf_file = self.__lfs.getPHLDataFiles()[0]['phl1']
 
@@ -642,6 +687,8 @@ class Converter(object):
                 field_type
             )
 
+            self.__addAlias(self.videlLayerName, field_name, field_desc[u"name"])
+
             cur.execute(sql)
             export_fields.append(field_name)
 
@@ -652,7 +699,7 @@ class Converter(object):
         for row in dbf_table:
             
             if self.__interupt.isSet():
-                raise ConverterInteruptException(procedure_name + " Interupt")
+                raise ConverterInteruptException(self.procedure_name + " Interupt")
 
             nomkvr = row.get(u"nomkvr", None)
             nomvyd = row.get(u"nomvyd", None)
@@ -660,7 +707,7 @@ class Converter(object):
             if nomkvr is None or nomvyd is None:
                 continue
             
-            values = [(v[0], self.__getDBFValue(v)) for v in row.items() if v[0] in export_fields]
+            values = [(v[0], self.__getDBFValueByField(v)) for v in row.items() if v[0] in export_fields]
 
             try:
                 sql = "update %s set %s where nomkvr = %s and nomvyd = %s" % (
@@ -672,7 +719,7 @@ class Converter(object):
 
                 cur.execute(sql, [v[1] for v in values])
 
-                self.__setStatus(procedure_name + " Process %d from %d videls" % (videl_index, videl_count))
+                self.__setStatus("Process %d from %d videls" % (videl_index, videl_count))
 
                 videl_index += 1
             except Exception as err:
@@ -684,11 +731,11 @@ class Converter(object):
                 ))
 
         conn.commit()
-        self.__setStatus(procedure_name + " Finish")
+        self.__setStatus("Finish")
 
     def __processPhl2(self):
-        procedure_name = "Process phl2 file."
-        self.__setStatus(procedure_name + " Start")
+        self.procedure_name = "Process phl2 file"
+        self.__setStatus("Start")
 
         phl2_dbf_file = self.__lfs.getPHLDataFiles()[0]['phl2']
 
@@ -698,7 +745,7 @@ class Converter(object):
             encoding=LESIS_ENCODING
         )
 
-        fields = []        
+        fields = []
         for export_field in dbf_table.fields:
 
             field_name = export_field.name
@@ -711,6 +758,11 @@ class Converter(object):
                 field_type = 'TEXT'
 
             fields.append( (field_name, field_type) )
+
+            if field_desc is not None:
+                self.__addAlias(self.yarporLayerName, field_name, field_desc[u"name"])
+            else:
+                self.__exceptions.append(self.procedure_name + u": field %s not present in Fields.DBF" % field_name)
 
         conn = sqlite3.connect(self.__sqlite_filename)
         cur = conn.cursor()
@@ -726,24 +778,17 @@ class Converter(object):
         cur.execute(sql)
         conn.commit()
 
-        sql = "select ogc_fid, nnn from %s" % (
-            self.videlLayerName,
-        )
-        cur.execute(sql)
-        videls_list = cur.fetchall()
-        videls = {}
-        for videl in videls_list:
-            videls.update({videl[1]: videl[0]})
+        videls = self.__getVidels(cur)
 
         yar_count = dbf_table._count_records()
         yar_index = 1
         for row in dbf_table:
             
             if self.__interupt.isSet():
-                raise ConverterInteruptException(procedure_name + " Interupt")
+                raise ConverterInteruptException(self.procedure_name + " Interupt")
 
             nnn = unicode(row.get(u"nnn", None))
-            fields = [(v[0], self.__getDBFValue(v)) for v in row.items()]        
+            fields = [(v[0], self.__getDBFValueByField(v)) for v in row.items()]        
 
             try:
                 sql = "insert into %s (%s, videl_id) values (%s, ?)" % (
@@ -757,7 +802,7 @@ class Converter(object):
 
                 cur.execute(sql, values)
 
-                self.__setStatus(procedure_name + " Process %d from %d yaruses" % (yar_index, yar_count))
+                self.__setStatus("Process %d from %d yaruses" % (yar_index, yar_count))
 
                 yar_index += 1
             except Exception as err:
@@ -768,62 +813,199 @@ class Converter(object):
 
         conn.commit()
 
-        self.__setStatus(procedure_name + " Finish")
+        self.__setStatus("Finish")
+
+    def __processPhl3(self):
+        self.procedure_name = "Process phl3 file"
+        self.__setStatus("Start")
+
+        phl3_dbf_file = self.__lfs.getPHLDataFiles()[0].get('phl3')
+        if phl3_dbf_file is None:
+            self.__exceptions.append(self.procedure_name + "There is not phl3.dbf")
+            return
+
+        dbf_table = DBF(
+            phl3_dbf_file,
+            lowernames=True,
+            encoding=LESIS_ENCODING
+        )
+
+        fields = {}
+        for field in dbf_table.fields:
+            fields[field.name] = field.type
+
+        makets_ids = set()
+        for row in dbf_table:
+            makets_ids.add(row.get(u"maket", None))
+                
+        referenced_fields =  self.__createMaketsTables(makets_ids, fields)
+        conn = sqlite3.connect(self.__sqlite_filename)
+        cur = conn.cursor()
+
+        videls = self.__getVidels(cur)
+
+        maket_count = dbf_table._count_records()
+        maket_index = 1
+        for row in dbf_table:
+            if self.__interupt.isSet():
+                raise ConverterInteruptException(self.procedure_name + " Interupt")
+
+            maket_id = row.get(u"maket", None)
+            if maket_id is None:
+                continue
+
+            nnn = unicode(row.get(u"nnn", None))
+            videl_fid = videls.get(nnn)
+
+            if videl_fid is None:
+                self.__exceptions.append(self.procedure_name + u" skip maket - there is no videl with nnn: " + nnn)
+                continue
+
+            fields = [field[0] for field in row.items()]
+            values = [field[1] for field in row.items()]
+
+            for field_index in xrange(0, len(fields)):
+                reference_dbf_name = referenced_fields.get((maket_id, fields[field_index]))
+                if reference_dbf_name is None:
+                    continue
+                reference_dbf = self.__lfs.getDBFbyName(reference_dbf_name)
+                if reference_dbf_name is None:
+                    continue
+
+                ref_value = self.__getDBFValueByDBF((reference_dbf, values[field_index]))
+                values[field_index] = ref_value
+
+            fields.append("videl_id")
+            values.append(videl_fid)
+
+            maket_table_name = self.maket_table_name_pattern % maket_id
+            sql = "insert into %s (%s) values (%s)" % (
+                maket_table_name,
+                ", ".join([field for field in fields]),
+                ", ".join(["?" for field in fields]),
+            )
+            cur.execute(sql, values)
+
+            self.__setStatus("Process %d from %d yaruses" % (maket_index, maket_count))
+            maket_index += 1
+
+        conn.commit()
+        self.__setStatus("Finish")
+
+    def __createMaketsTables(self, makets_ids, fields):
+        makets_dbf = self.__lfs.getDBFbyName(u"makets")
+
+        if makets_dbf is None:
+            self.__exceptions.append("Makets.bdf not found! Makets tables will not be created.")
+            return False
+
+        dbf_table = DBF(
+            makets_dbf,
+            lowernames=True,
+            encoding=LESIS_ENCODING
+        )
+
+        makets_tables_struct = {}
+        for row in dbf_table:
+            maket_id = row.get(u"maket")
+            if maket_id not in makets_ids:
+                continue
+
+            field = unicode(row.get(u"field"))
+            if field == u"N0":
+                makets_tables_struct[maket_id] = []
+
+                alias = row.get(u"name")
+                maket_table_name = self.maket_table_name_pattern % unicode(maket_id)
+                self.__addAlias(maket_table_name, None, alias)
+
+        referenced_fields = {}
+        for row in dbf_table:
+            maket_id = row.get(u"maket")            
+            if maket_id not in makets_ids:
+                continue
+
+            field = unicode(row.get(u"field")).lower()
+            if field != u"n0":
+                if makets_tables_struct.has_key(maket_id):
+                    
+                    field_type = typemap.get(
+                        fields.get(field),
+                        'TEXT'
+                    )
+                    sprav = unicode(row.get(u"sprav"))
+                    if sprav not in ["", None]:
+                        field_type = 'TEXT'
+                        referenced_fields[(maket_id, field)] = sprav
+
+                    makets_tables_struct[maket_id].append((field, field_type))
+
+                    alias = row.get(u"name")
+                    maket_table_name = self.maket_table_name_pattern % unicode(maket_id)
+                    self.__addAlias(maket_table_name, field, alias)
+                else:
+                    self.__exceptions.append(u"Makets %s not found!" % maket_id)
+        
+        for maket_id, maket_fields in makets_tables_struct.items():
+            if self.__interupt.isSet():
+                raise ConverterInteruptException(self.procedure_name + " Interupt")
+
+            maket_fields_ids = [field[0] for field in maket_fields]
+            miss_fields = [(field[0], typemap.get(field[1], 'TEXT')) for field in fields.items() if field[0] not in maket_fields_ids]
+            maket_fields.extend(miss_fields)
+            self.__createMaketTable(maket_id, maket_fields)
+
+        return referenced_fields
+
+    def __createMaketTable(self, maket_id, fields):
+        maket_table_name = self.maket_table_name_pattern % maket_id
+        conn = sqlite3.connect(self.__sqlite_filename)
+        cur = conn.cursor()
+
+        cur.execute("PRAGMA foreign_keys = ON")
+        conn.commit()
+
+        sql = "CREATE TABLE %s (%s, %s)" % (
+            maket_table_name,
+            ", ".join( ["%s %s" % field for field in fields] ),
+            "videl_id INTEGER REFERENCES %s(ogc_fid)" % (self.videlLayerName,)
+        )
+
+        cur.execute(sql)
+        conn.commit()
+
+    def __makeAliasesTable(self):
+        conn = sqlite3.connect(self.__sqlite_filename)
+        cur = conn.cursor()
+
+        sql = "CREATE TABLE %s (table_name TEXT, field_name TEXT, alias TEXT)" % (
+            self.alias_table_name
+        )
+
+        cur.execute(sql)
+        conn.commit()
+
+    def __addAlias(self, table_name, field_name, alias):
+        conn = sqlite3.connect(self.__sqlite_filename)
+        cur = conn.cursor()
+
+        sql = "insert into %s (%s) values (%s)" % (
+            self.alias_table_name,
+            "table_name, field_name, alias",
+            "?, ?, ?",
+        )
+        cur.execute(sql, [table_name, field_name, alias])
+        conn.commit()
 
 
 def main():
- 
-    # args = parse_args()
-
-    # lesis_export = LesisExport(args.lesis_export_base_dir)
-    # lesis_export.initExport = f1
-    # lesis_export.dbfFileProcess = f2
-    # lesis_export.handleError = lambda err: sys.stdout.write("!!!! " + str(err) + "\n")
-
-    # # lesis_export.copy2SQLiteDB('d:\\Development\\NextGIS\\lesis2sqlite\\lesis_export.sqlite')
-    # lesis_export.exportToSQLite('d:\\Development\\NextGIS\\lesis2sqlite\\lesis_export.sqlite')
-
     sqliteDBDest = u"e:\\dev\\lesis2sqlite\\new_lesis.sqlite"
-
     shapeFile = u"e:\\dev\\lesis2sqlite\\ПТЗ\\VD\\Выдел.SHP"
-    # shapeFile = u"e:\dev\lesis2sqlite\VD\Videl.SHP"
-
     lBaseDir = u"e:\\dev\\lesis2sqlite\\ПТЗ\\rlh"
  
-    lfs = LesisFileStructure(lBaseDir)
-
-    print lfs.getDBFbyName("yarus")
-    print lfs.getFieldsDBFFile()
-    print lfs.getPHLDataFiles()
-
-    fieldsDesc = getFieldsDescFromDBF(lfs.getFieldsDBFFile())
-    fieldsDescExt = {
-        u"arn": {
-            "type": u"char",
-            "name": u"Арендатор",
-            "ref":  u"arnLesse",
-        },
-        u"vozrub": {
-            "type": u"char",
-            "name": u"Возраст рубки",
-            "ref":  None,
-        }
-    }
-    fieldsDesc.update(fieldsDescExt)
-
     def myprint(msg):
         print msg
 
-    # layer_name = shape2sqlite(shapeFile, sqliteDBDest, None, lambda x,y: myprint("%d:%d"%(x,y)))
-
-    # print "layer_name: ", layer_name
-    
-    # data_files = lfs.getPHLDataFiles()[0]
-
-    # processPHL1(data_files["phl1"], layer_name, sqliteDBDest, fieldsDesc, lfs)
-    # processPHL2(data_files["phl2"], "yarpor_attrs", sqliteDBDest, fieldsDesc)
-
-    # addKVRpoligonLayer(layer_name, sqliteDBDest)
     import signal
 
     cnvr = Converter(lBaseDir, shapeFile, sqliteDBDest)
@@ -832,6 +1014,7 @@ def main():
     signal.signal( signal.SIGINT, lambda s, f : cnvr.interupt())
 
     cnvr.convert()
+
 
 if __name__ == '__main__':
     main()
