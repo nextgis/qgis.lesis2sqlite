@@ -121,12 +121,16 @@ class Worker(QtCore.QObject):
             # lesis2sqlite.addKVRpoligonLayer(layerName, self.sqliteDBDest)
 
             # self.statusChanged.emit(u"Finish")
-            
-            Plugin().plPrint("Finish")
-            self.stoped.emit()
 
         except Exception as err:
             self.error.emit(str(err))
+
+        
+        
+        Plugin().plPrint("Exceptions:\n" + "\n".join(self.cnvr.getExceptions()))
+        
+        self.stoped.emit()
+        Plugin().plPrint("Finish")
 
     def getCRSAsWKT(self):
         selector = gui.QgsGenericProjectionSelector()

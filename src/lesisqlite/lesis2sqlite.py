@@ -312,9 +312,33 @@ class ConverterErrorException(Exception):
 
 
 class Converter(object):
-    RETURN_CODE_SUCCESS = 0
-    RETURN_CODE_ERROR = 1
-    RETURN_CODE_INTERUPT = 2
+    RETURN_CODE_SUCCESS     = 0
+    RETURN_CODE_ERROR       = 1
+    RETURN_CODE_INTERUPT    = 2
+
+    CONVERT_STATE_STARTED       = 0
+    CONVERT_STATE_PREPARE       = 1
+    CONVERT_STATE_COPY_SHAPE    = 2
+    CONVERT_STATE_GEN_KVR       = 3
+    CONVERT_STATE_PROCESS_PHL1  = 4
+    CONVERT_STATE_PROCESS_PHL2  = 5
+    CONVERT_STATE_PROCESS_PHL3  = 6
+    CONVERT_STATE_CREATE_ALIASES= 7
+    CONVERT_STATE_WAIT          = 98
+    CONVERT_STATE_FINISHED      = 99
+
+    CONVERT_STATE_NAMES = {
+        CONVERT_STATE_WAIT:             "Wait for convertation",
+        CONVERT_STATE_STARTED:          "Convert STARED",
+        CONVERT_STATE_FINISHED:         "Convert FINISHED",
+        CONVERT_STATE_PREPARE:          "Convert prepare",
+        CONVERT_STATE_COPY_SHAPE:       "Copy videls shape",
+        CONVERT_STATE_GEN_KVR:          "Generate kvr layers",
+        CONVERT_STATE_PROCESS_PHL1:     "Process PHL1.dbf",
+        CONVERT_STATE_PROCESS_PHL2:     "Process PHL2.dbf",
+        CONVERT_STATE_PROCESS_PHL3:     "Process PHL3.dbf",
+        CONVERT_STATE_CREATE_ALIASES:   "Create aliases"
+    }
 
     def __init__(self, lesis_base_dir, shape_filename, sqlite_filename):
         self.__lesis_base_dir   = lesis_base_dir
@@ -324,6 +348,9 @@ class Converter(object):
         self.__lfs = None
         self.__lessis_fields_struct = {}
         self.__reference_cash = {}
+        self.__aliases = []
+
+        self.__current_convert_status = self.CONVERT_STATE_WAIT
         self.__exceptions = []
 
         self.videlLayerName = "videl_plg"
@@ -348,66 +375,80 @@ class Converter(object):
     def interupt(self):
         self.__interupt.set()
 
+    def getExceptions(self):
+        return self.__exceptions
+
     def convert(self):
-        self.procedure_name = None
-        self.__setStatus("Convert start")
-        result = None
+        self.__setStatus(self.CONVERT_STATE_STARTED)
+        
+        result = self.RETURN_CODE_ERROR
+
+        if os.path.isfile(self.__sqlite_filename):
+            os.remove(self.__sqlite_filename)
 
         try:
-            if os.path.exists(self.__sqlite_filename):
-                 os.remove(self.__sqlite_filename)
-
+            self.__setStatus(self.CONVERT_STATE_PREPARE)
+            self.__setStatusMessage("Start")
             self.__validateLesisWorkDir()
-            
+            self.__setStatusMessage("Finish")
+
+            self.__setStatus(self.CONVERT_STATE_COPY_SHAPE)
+            self.__setStatusMessage("Start")
             self.__copyShape()
-            
-            self.__makeAliasesTable()
+            self.__setStatusMessage("Finish")
 
+            self.__setStatus(self.CONVERT_STATE_GEN_KVR)
+            self.__setStatusMessage("Start")
             self.__createKvrLayer()
+            self.__setStatusMessage("Finish")
 
+            self.__setStatus(self.CONVERT_STATE_PROCESS_PHL1)
+            self.__setStatusMessage("Start")
             self.__processPhl1()
+            self.__setStatusMessage("Finish")
 
+            self.__setStatus(self.CONVERT_STATE_PROCESS_PHL2)
+            self.__setStatusMessage("Start")
             self.__processPhl2()
+            self.__setStatusMessage("Finish")
 
+            self.__setStatus(self.CONVERT_STATE_PROCESS_PHL3)
+            self.__setStatusMessage("Start")
             self.__processPhl3()
+            self.__setStatusMessage("Finish")
+
+            self.__setStatus(self.CONVERT_STATE_CREATE_ALIASES)
+            self.__setStatusMessage("Start")
+            self.__createAliasesTable()
+            self.__setStatusMessage("Finish")
 
             result = self.RETURN_CODE_SUCCESS
+
         except ConverterErrorException as err:
-            self.__exceptions.append(err.message)
-            self.__setStatus(err.message)
+            msg = self.__setStatusMessage(err.message)
+            self.__exceptions.append(msg)
             result = self.RETURN_CODE_ERROR            
 
         except ConverterInteruptException:
             result = self.RETURN_CODE_INTERUPT
 
-        self.procedure_name = None
-        self.__setStatus("Convert finish")
         return result
 
-    def __setStatus(self, status_msg):
+    def __setStatus(self, status):
+        self.__current_convert_status = status
+        self.__setStatusMessage("setted")        
+
+    def __setStatusMessage(self, status_msg):
         if self.__status_changed_callback is not None:
-            if self.procedure_name is not None:
-                msg = self.procedure_name + ": " + status_msg
-                self.__status_changed_callback(msg)
-            else:
-                self.__status_changed_callback(status_msg)
+            msg = "%s: %s" % (
+                self.CONVERT_STATE_NAMES[self.__current_convert_status],
+                status_msg
+            )
+            self.__status_changed_callback(msg)
 
-    def __getVidels(self, cur):
-        sql = "select ogc_fid, nnn from %s" % (
-            self.videlLayerName,
-        )
-        cur.execute(sql)
-        videls_list = cur.fetchall()
-        videls = {}
-        for videl in videls_list:
-            videls.update({videl[1]: videl[0]})
-
-        return videls
+        return msg
 
     def __validateLesisWorkDir(self):
-        self.procedure_name = "Init work space"
-        self.__setStatus("Analize lesis dir struct. Start")
-        
         try:
             self.__lfs = LesisFileStructure(self.__lesis_base_dir)
             
@@ -428,32 +469,27 @@ class Converter(object):
                 }
             }
             self.__lessis_fields_struct.update(fieldsExt)
-
-            self.__setStatus("Analize lesis dir struct. Finish")
-
         except ValueError as err:
             self.__return_code = self.RETURN_CODE_ERROR
 
             msg = "Analize lesis dir struct. Error: " + err
             self.__exceptions.append(msg)
-            self.__setStatus(msg)
+            self.__setStatusMessage(msg)
             
     def __getShapeDS(self):
         shape_ds = ogr.Open(self.__shape_filename)
-        self.procedure_name = "Crate shape ogr data source."
-        if shape_ds is None:
-            msg = self.procedure_name + " Error: " + "can't create ogr datasource for shape."
-            raise ConverterErrorException(msg)
 
+        if shape_ds is None:
+            msg = "Error: can't create ogr datasource for shape."
+            raise ConverterErrorException(msg)
         if shape_ds.GetDriver().GetName() != "ESRI Shapefile":
-            msg = self.procedure_name + " Error: " + "input file have not shape format."
+            msg = "Error: input file have not shape format."
             raise ConverterErrorException(msg)
 
         return shape_ds 
 
     def __getSQLiteDS(self):
         sqlite_ds = None
-        self.procedure_name = "Crate sqlite ogr data source."
         
         if os.path.isfile(self.__sqlite_filename):
             sqlite_ds = ogr.Open(self.__sqlite_filename, True)
@@ -465,6 +501,7 @@ class Converter(object):
                 raise ConverterErrorException("Error: input file have not sqlite format.")
         else:
             drv = ogr.GetDriverByName("SQLite")
+            
             # sqlite_ds = drv.CreateDataSource(self.__sqlite_filename, ["SPATIALITE=YES"])
             sqlite_ds = drv.CreateDataSource(self.__sqlite_filename)
 
@@ -474,9 +511,6 @@ class Converter(object):
         return sqlite_ds
 
     def __copyShape(self):
-        self.procedure_name = "Copy shape file."
-        self.__setStatus("Start")
-
         src_shape_ds = self.__getShapeDS()
         dest_ds = self.__getSQLiteDS()
         
@@ -497,19 +531,17 @@ class Converter(object):
             layer_dst.CreateField(layer_definition.GetFieldDefnRef(i))
 
         layer_src.ResetReading()
-        # adding the features from input to dest
         feature_count = layer_src.GetFeatureCount()
         # feature_count = 10
-
         for i in range(0, feature_count):
             if self.__interupt.isSet():
-                raise ConverterInteruptException(self.procedure_name + " Interupt")
+                raise ConverterInteruptException("Interupt")
 
             feature = layer_src.GetNextFeature()
             # feature = layer_src.GetFeature(i)
             layer_dst.CreateFeature(feature)
             
-            self.__setStatus("Copied %d from %d features" % (i, feature_count))
+            self.__setStatusMessage("Copied %d from %d features" % (i, feature_count))
 
             time.sleep(0.01)
         layer_dst.SyncToDisk()
@@ -520,13 +552,9 @@ class Converter(object):
         src_shape_ds = None
         dest_ds = None
 
-        self.__setStatus("Finish")
         return layer_name
 
     def __createKvrLayer(self):
-        self.procedure_name = "Create kvr layer"
-        self.__setStatus("Start")
-
         conn = sqlite3.connect(self.__sqlite_filename)
         cur = conn.cursor()
 
@@ -545,17 +573,17 @@ class Converter(object):
 
         layer_dst = sqlite_ds.CreateLayer( self.kvrLayerName, layer_src.GetSpatialRef(), ogr.wkbPolygon, ["OVERWRITE=YES"] )
         if layer_dst is None:
-            msg = self.procedure_name + " Error: " + "can't create ogr layer."
+            msg = "Error: can't create ogr layer."
             raise ConverterErrorException(msg)
 
         field_defn = ogr.FieldDefn( "plskvr", ogr.OFTReal )
         if layer_dst.CreateField ( field_defn ) != 0:
-            msg = self.procedure_name + " Error: " + "can't create ogr field 'plskvr'."
+            msg = "Error: can't create ogr field 'plskvr'."
             raise ConverterErrorException(msg)
 
         nomkvrFieldDefn = featureDefn.GetFieldDefn(featureDefn.GetFieldIndex("nomkvr"))    
         if layer_dst.CreateField ( nomkvrFieldDefn ) != 0:
-            msg = self.procedure_name + " Error: " + "can't create ogr field 'nomkvr'."
+            msg = "Error: can't create ogr field 'nomkvr'."
             raise ConverterErrorException(msg)
 
         for kvr_num in kvrs_nums:
@@ -567,7 +595,7 @@ class Converter(object):
             
             while feature is not None:
                 if self.__interupt.isSet():
-                    raise ConverterInteruptException(self.procedure_name + " Interupt")
+                    raise ConverterInteruptException("Interupt")
 
                 geom = feature.GetGeometryRef()
                 union_geom = result_polygon.Union(geom)
@@ -577,7 +605,7 @@ class Converter(object):
                 
                 plskvr += feature.GetFieldAsDouble(feature.GetFieldIndex( "plsvyd" ))
 
-                self.__setStatus("Process videl %d" % (feature.GetFID()))
+                self.__setStatusMessage("Process videl %d" % (feature.GetFID()))
 
                 feature = layer_src.GetNextFeature()
                 time.sleep(0.01)
@@ -591,8 +619,6 @@ class Converter(object):
 
         sqlite_ds.Release()
         sqlite_ds = None
-
-        self.__setStatus("Finish")
 
     def __getDBFValueByField(self, (field_name, field_value)):
         field_desc = self.__lessis_fields_struct.get(field_name)
@@ -649,9 +675,6 @@ class Converter(object):
             return self.__reference_cash[(ref_dbf_file, dbf_field_value)]
 
     def __processPhl1(self):
-        self.procedure_name = "Process phl1 file."
-        self.__setStatus("Start")
-
         phl1_dbf_file = self.__lfs.getPHLDataFiles()[0]['phl1']
 
         dbf_table = DBF(
@@ -687,8 +710,8 @@ class Converter(object):
                 field_type
             )
 
-            self.__addAlias(self.videlLayerName, field_name, field_desc[u"name"])
-
+            # self.__addAlias(self.videlLayerName, field_name, field_desc[u"name"])
+            self.__aliases.append([self.videlLayerName, field_name, field_desc[u"name"]])
             cur.execute(sql)
             export_fields.append(field_name)
 
@@ -699,7 +722,7 @@ class Converter(object):
         for row in dbf_table:
             
             if self.__interupt.isSet():
-                raise ConverterInteruptException(self.procedure_name + " Interupt")
+                raise ConverterInteruptException("Interupt")
 
             nomkvr = row.get(u"nomkvr", None)
             nomvyd = row.get(u"nomvyd", None)
@@ -719,7 +742,7 @@ class Converter(object):
 
                 cur.execute(sql, [v[1] for v in values])
 
-                self.__setStatus("Process %d from %d videls" % (videl_index, videl_count))
+                self.__setStatusMessage("Process %d from %d videls" % (videl_index, videl_count))
 
                 videl_index += 1
             except Exception as err:
@@ -731,12 +754,8 @@ class Converter(object):
                 ))
 
         conn.commit()
-        self.__setStatus("Finish")
 
     def __processPhl2(self):
-        self.procedure_name = "Process phl2 file"
-        self.__setStatus("Start")
-
         phl2_dbf_file = self.__lfs.getPHLDataFiles()[0]['phl2']
 
         dbf_table = DBF(
@@ -760,9 +779,10 @@ class Converter(object):
             fields.append( (field_name, field_type) )
 
             if field_desc is not None:
-                self.__addAlias(self.yarporLayerName, field_name, field_desc[u"name"])
+                # self.__addAlias(self.yarporLayerName, field_name, field_desc[u"name"])
+                self.__aliases.append([self.yarporLayerName, field_name, field_desc[u"name"]])
             else:
-                self.__exceptions.append(self.procedure_name + u": field %s not present in Fields.DBF" % field_name)
+                self.__exceptions.append(u"Field %s not present in Fields.DBF" % field_name)
 
         conn = sqlite3.connect(self.__sqlite_filename)
         cur = conn.cursor()
@@ -777,6 +797,7 @@ class Converter(object):
         )
         cur.execute(sql)
         conn.commit()
+        self.__aliases.append([self.yarporLayerName, None, u"Ярусы"])
 
         videls = self.__getVidels(cur)
 
@@ -785,7 +806,7 @@ class Converter(object):
         for row in dbf_table:
             
             if self.__interupt.isSet():
-                raise ConverterInteruptException(self.procedure_name + " Interupt")
+                raise ConverterInteruptException("Interupt")
 
             nnn = unicode(row.get(u"nnn", None))
             fields = [(v[0], self.__getDBFValueByField(v)) for v in row.items()]        
@@ -802,7 +823,7 @@ class Converter(object):
 
                 cur.execute(sql, values)
 
-                self.__setStatus("Process %d from %d yaruses" % (yar_index, yar_count))
+                self.__setStatusMessage("Process %d from %d yaruses" % (yar_index, yar_count))
 
                 yar_index += 1
             except Exception as err:
@@ -813,15 +834,22 @@ class Converter(object):
 
         conn.commit()
 
-        self.__setStatus("Finish")
+    def __getVidels(self, cur):
+        sql = "select ogc_fid, nnn from %s" % (
+            self.videlLayerName,
+        )
+        cur.execute(sql)
+        videls_list = cur.fetchall()
+        videls = {}
+        for videl in videls_list:
+            videls.update({videl[1]: videl[0]})
+
+        return videls
 
     def __processPhl3(self):
-        self.procedure_name = "Process phl3 file"
-        self.__setStatus("Start")
-
         phl3_dbf_file = self.__lfs.getPHLDataFiles()[0].get('phl3')
         if phl3_dbf_file is None:
-            self.__exceptions.append(self.procedure_name + "There is not phl3.dbf")
+            self.__exceptions.append("There is not phl3.dbf")
             return
 
         dbf_table = DBF(
@@ -848,7 +876,7 @@ class Converter(object):
         maket_index = 1
         for row in dbf_table:
             if self.__interupt.isSet():
-                raise ConverterInteruptException(self.procedure_name + " Interupt")
+                raise ConverterInteruptException("Interupt")
 
             maket_id = row.get(u"maket", None)
             if maket_id is None:
@@ -858,7 +886,7 @@ class Converter(object):
             videl_fid = videls.get(nnn)
 
             if videl_fid is None:
-                self.__exceptions.append(self.procedure_name + u" skip maket - there is no videl with nnn: " + nnn)
+                self.__exceptions.append(u"Skip maket - there is no videl with nnn: " + nnn)
                 continue
 
             fields = [field[0] for field in row.items()]
@@ -886,11 +914,10 @@ class Converter(object):
             )
             cur.execute(sql, values)
 
-            self.__setStatus("Process %d from %d yaruses" % (maket_index, maket_count))
+            self.__setStatusMessage("Process %d from %d makets" % (maket_index, maket_count))
             maket_index += 1
 
         conn.commit()
-        self.__setStatus("Finish")
 
     def __createMaketsTables(self, makets_ids, fields):
         makets_dbf = self.__lfs.getDBFbyName(u"makets")
@@ -917,7 +944,8 @@ class Converter(object):
 
                 alias = row.get(u"name")
                 maket_table_name = self.maket_table_name_pattern % unicode(maket_id)
-                self.__addAlias(maket_table_name, None, alias)
+                # self.__addAlias(maket_table_name, None, alias)
+                self.__aliases.append([maket_table_name, None, alias])
 
         referenced_fields = {}
         for row in dbf_table:
@@ -942,13 +970,14 @@ class Converter(object):
 
                     alias = row.get(u"name")
                     maket_table_name = self.maket_table_name_pattern % unicode(maket_id)
-                    self.__addAlias(maket_table_name, field, alias)
+                    # self.__addAlias(maket_table_name, field, alias)
+                    self.__aliases.append([maket_table_name, field, alias])
                 else:
                     self.__exceptions.append(u"Makets %s not found!" % maket_id)
         
         for maket_id, maket_fields in makets_tables_struct.items():
             if self.__interupt.isSet():
-                raise ConverterInteruptException(self.procedure_name + " Interupt")
+                raise ConverterInteruptException("Interupt")
 
             maket_fields_ids = [field[0] for field in maket_fields]
             miss_fields = [(field[0], typemap.get(field[1], 'TEXT')) for field in fields.items() if field[0] not in maket_fields_ids]
@@ -974,7 +1003,7 @@ class Converter(object):
         cur.execute(sql)
         conn.commit()
 
-    def __makeAliasesTable(self):
+    def __createAliasesTable(self):
         conn = sqlite3.connect(self.__sqlite_filename)
         cur = conn.cursor()
 
@@ -985,17 +1014,29 @@ class Converter(object):
         cur.execute(sql)
         conn.commit()
 
-    def __addAlias(self, table_name, field_name, alias):
-        conn = sqlite3.connect(self.__sqlite_filename)
-        cur = conn.cursor()
+        for alias in self.__aliases:
+            if self.__interupt.isSet():
+                raise ConverterInteruptException("Interupt")
 
-        sql = "insert into %s (%s) values (%s)" % (
-            self.alias_table_name,
-            "table_name, field_name, alias",
-            "?, ?, ?",
-        )
-        cur.execute(sql, [table_name, field_name, alias])
-        conn.commit()
+            sql = "insert into %s (%s) values (%s)" % (
+                self.alias_table_name,
+                "table_name, field_name, alias",
+                "?, ?, ?",
+            )
+            cur.execute(sql, alias)
+        conn.commit()            
+
+    # def __addAlias(self, table_name, field_name, alias):
+    #     conn = sqlite3.connect(self.__sqlite_filename)
+    #     cur = conn.cursor()
+
+    #     sql = "insert into %s (%s) values (%s)" % (
+    #         self.alias_table_name,
+    #         "table_name, field_name, alias",
+    #         "?, ?, ?",
+    #     )
+    #     cur.execute(sql, [table_name, field_name, alias])
+    #     conn.commit()
 
 
 def main():
@@ -1015,6 +1056,7 @@ def main():
 
     cnvr.convert()
 
+    print "\nExceptions:\n" + "\n".join(cnvr.getExceptions())
 
 if __name__ == '__main__':
     main()
