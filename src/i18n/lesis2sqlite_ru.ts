@@ -5,17 +5,17 @@
     <name>Lesis2SQLiteDialog</name>
     <message>
         <location filename="dialog.py" line="145"/>
-        <source>Lesis base dir</source>
+        <source>Lesis base directory</source>
         <translation>Директория данных Lesis</translation>
     </message>
     <message>
         <location filename="dialog.py" line="146"/>
-        <source>Videl shape</source>
+        <source>Parcels shape-file</source>
         <translation>Shape-файл выделов</translation>
     </message>
     <message>
         <location filename="dialog.py" line="147"/>
-        <source>SQLite db</source>
+        <source>SQLite database</source>
         <translation>БД SQLite</translation>
     </message>
     <message>
