@@ -135,7 +135,7 @@ class Lesis2SQLiteDialog(QtGui.QDialog):
 
         self.__layout.addWidget(QtGui.QLabel(self.tr("Lesis base directory") + ":"), 0, 0)
         self.__layout.addWidget(QtGui.QLabel(self.tr("Parcels shape-file") + ":"), 1, 0)
-        self.__layout.addWidget(QtGui.QLabel(self.tr("SQLite Database") + ":"), 2, 0)
+        self.__layout.addWidget(QtGui.QLabel(self.tr("SQLite database") + ":"), 2, 0)
 
         settings = QtCore.QSettings()
         self.lesisBaseDir = QtGui.QLineEdit(self)
