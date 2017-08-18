@@ -134,7 +134,7 @@ class Lesis2SQLiteDialog(QtGui.QDialog):
         self.__mainLayout.addLayout(self.__layout)
 
         self.__layout.addWidget(QtGui.QLabel(self.tr("Lesis base dir") + ":"), 0, 0)
-        self.__layout.addWidget(QtGui.QLabel(self.tr("Videl shape") + ":"), 1, 0)
+        self.__layout.addWidget(QtGui.QLabel(self.tr("Parcels shape") + ":"), 1, 0)
         self.__layout.addWidget(QtGui.QLabel(self.tr("SQLite db") + ":"), 2, 0)
 
         settings = QtCore.QSettings()
@@ -194,7 +194,7 @@ class Lesis2SQLiteDialog(QtGui.QDialog):
         if os.path.exists(currentFilename):
             chooserDir = os.path.dirname(currentFilename)
 
-        fName = QtGui.QFileDialog.getOpenFileName(self, self.tr("Select Videls shape"), chooserDir)
+        fName = QtGui.QFileDialog.getOpenFileName(self, self.tr("Select Parcels shape"), chooserDir)
 
         if fName != u"":
             self.shape.setText(fName)
@@ -287,6 +287,7 @@ class Lesis2SQLiteDialog(QtGui.QDialog):
 
     def changeProgressStatus(self, status):
         self.__statusLable.setText(status)
+        # Plugin().plPrint("change status on '%s'" % status)
 
     def addLayer(self):
         self.layerSrcCreated.emit(self.sqliteDB.text())

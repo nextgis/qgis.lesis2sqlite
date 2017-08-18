@@ -329,7 +329,7 @@ class Converter(object):
 
     CONVERT_STATE_NAMES = {
         CONVERT_STATE_WAIT:             "Wait for convertation",
-        CONVERT_STATE_STARTED:          "Convert STARED",
+        CONVERT_STATE_STARTED:          "Convert STARTED",
         CONVERT_STATE_FINISHED:         "Convert FINISHED",
         CONVERT_STATE_PREPARE:          "Convert prepare",
         CONVERT_STATE_COPY_SHAPE:       "Copy videls shape",
@@ -436,7 +436,7 @@ class Converter(object):
 
     def __setStatus(self, status):
         self.__current_convert_status = status
-        self.__setStatusMessage("setted")        
+        self.__setStatusMessage("Set")
 
     def __setStatusMessage(self, status_msg):
         if self.__status_changed_callback is not None:
@@ -472,7 +472,7 @@ class Converter(object):
         except ValueError as err:
             self.__return_code = self.RETURN_CODE_ERROR
 
-            msg = "Analize lesis dir struct. Error: " + err
+            msg = "Analize lesis dir struct. Error: " + str(err)
             self.__exceptions.append(msg)
             self.__setStatusMessage(msg)
             
@@ -543,7 +543,7 @@ class Converter(object):
             
             self.__setStatusMessage("Copied %d from %d features" % (i, feature_count))
 
-            time.sleep(0.01)
+            time.sleep(0.001)
         layer_dst.SyncToDisk()
 
         dest_ds.Release()
@@ -586,13 +586,17 @@ class Converter(object):
             msg = "Error: can't create ogr field 'nomkvr'."
             raise ConverterErrorException(msg)
 
+        kvrs_nums_len = len(kvrs_nums)
+        kvrs_nums_processed = 0
         for kvr_num in kvrs_nums:
+            self.__setStatusMessage("Process blocks %d from %d (%s)" % (kvrs_nums_processed, kvrs_nums_len, kvr_num, ))
             layer_src.SetAttributeFilter("nomkvr=%s" % str(kvr_num))
 
             result_polygon = ogr.Geometry(ogr.wkbPolygon)
             feature = layer_src.GetNextFeature()
-            plskvr = feature.GetFieldAsDouble(feature.GetFieldIndex( "plsvyd" ))
             
+            plskvr = 0.0
+
             while feature is not None:
                 if self.__interupt.isSet():
                     raise ConverterInteruptException("Interupt")
@@ -605,10 +609,11 @@ class Converter(object):
                 
                 plskvr += feature.GetFieldAsDouble(feature.GetFieldIndex( "plsvyd" ))
 
-                self.__setStatusMessage("Process videl %d" % (feature.GetFID()))
+                # self.__setStatusMessage("Process parsel %d" % (feature.GetFID(), ))
+                # self.__setStatusMessage("Process parsel %d" % (feature.GetFID(), ))
 
                 feature = layer_src.GetNextFeature()
-                time.sleep(0.01)
+                time.sleep(0.001)
 
             feat = ogr.Feature( layer_dst.GetLayerDefn())
             feat.SetGeometry(result_polygon)
@@ -616,6 +621,8 @@ class Converter(object):
             feat.SetField( "nomkvr", str(kvr_num) )
 
             layer_dst.CreateFeature(feat)
+
+            kvrs_nums_processed += 1
 
         sqlite_ds.Release()
         sqlite_ds = None
@@ -1040,9 +1047,9 @@ class Converter(object):
 
 
 def main():
-    sqliteDBDest = u"e:\\dev\\lesis2sqlite\\new_lesis.sqlite"
-    shapeFile = u"e:\\dev\\lesis2sqlite\\ПТЗ\\VD\\Выдел.SHP"
-    lBaseDir = u"e:\\dev\\lesis2sqlite\\ПТЗ\\rlh"
+    sqliteDBDest = u"e:\\dev\\test.lesis\\new_lesis.sqlite"
+    shapeFile = u"e:\\dev\\test.lesis\\VD\\Выдел.SHP"
+    lBaseDir = u"e:\\dev\\test.lesis\\rlh"
  
     def myprint(msg):
         print msg
