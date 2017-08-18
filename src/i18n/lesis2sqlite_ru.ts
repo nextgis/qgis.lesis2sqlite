@@ -4,18 +4,18 @@
 <context>
     <name>Lesis2SQLiteDialog</name>
     <message>
-        <location filename="dialog.py" line="136"/>
-        <source>Lesis base dir</source>
+        <location filename="dialog.py" line="145"/>
+        <source>Lesis base directory</source>
         <translation>Директория данных Lesis</translation>
     </message>
     <message>
-        <location filename="dialog.py" line="137"/>
-        <source>Videl shape</source>
-        <translation type="obsolete">Shape-файл выделов</translation>
+        <location filename="dialog.py" line="146"/>
+        <source>Parcels shape-file</source>
+        <translation>Shape-файл выделов</translation>
     </message>
     <message>
-        <location filename="dialog.py" line="138"/>
-        <source>SQLite db</source>
+        <location filename="dialog.py" line="147"/>
+        <source>SQLite database</source>
         <translation>БД SQLite</translation>
     </message>
     <message>
